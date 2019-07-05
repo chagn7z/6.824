@@ -2,6 +2,11 @@ package mapreduce
 
 import (
 	"hash/fnv"
+	"os"
+	"fmt"
+	"bufio"
+	"io/ioutil"
+	"encoding/json"
 )
 
 func doMap(
@@ -53,6 +58,51 @@ func doMap(
 	//
 	// Your code here (Part I).
 	//
+
+	file, err := os.Open(inFile)
+	if err != nil {
+		fmt.Println("open file error.")
+	}
+	defer file.Close()
+
+	var splitRes [][]KeyValue
+	for i:=0; i<nReduce; i++ {
+		var row []KeyValue
+		splitRes = append(splitRes, row)
+	}
+
+	reader := bufio.NewReader(file)
+	contents, err := ioutil.ReadAll(reader)
+	if err != nil {
+	}
+
+	str := string(contents[:])
+	sub := mapF(inFile, str)
+	if len(sub) > 0 {
+		for _,pair := range sub {
+			id := ihash(pair.Key) % nReduce
+			splitRes[id] = append(splitRes[id], pair)
+		}
+	}
+
+	for i,res := range splitRes {
+		resFile := reduceName(jobName, mapTask, i)
+		
+		file, err := os.OpenFile(resFile, os.O_RDWR|os.O_CREATE, 0644)
+		if err != nil {
+			fmt.Println(err)
+			fmt.Println("open file error.")
+		}
+		defer file.Close()
+
+		enc := json.NewEncoder(file)
+		for _,kv := range res {
+			err := enc.Encode(&kv)
+			if err != nil {
+
+			}
+		}
+	}
 }
 
 func ihash(s string) int {

@@ -1,5 +1,13 @@
 package mapreduce
 
+import (
+	"os"
+	"io"
+	"fmt"
+	"encoding/json"
+	"sort"
+)
+
 func doReduce(
 	jobName string, // the name of the whole MapReduce job
 	reduceTask int, // which reduce task this is
@@ -44,4 +52,52 @@ func doReduce(
 	//
 	// Your code here (Part I).
 	//
+
+	var keys []string
+	var kvs = make(map[string][]string)
+
+	for m:=0; m <nMap; m++ {
+		redName := reduceName(jobName, m, reduceTask)
+
+		file, err := os.Open(redName)
+		if err != nil {
+			fmt.Println(redName,": ", err)
+		} else if err == io.EOF {
+			fmt.Println(redName,": ", err)
+		}
+		defer file.Close()
+
+		dec := json.NewDecoder(file)
+		for {
+			var kv KeyValue
+			err := dec.Decode(&kv)
+			if err != nil {
+				// fmt.Println(err)
+				break
+			}
+
+			if _, ok := kvs[kv.Key]; !ok {
+				keys = append(keys, kv.Key)
+			}
+
+			kvs[kv.Key] = append(kvs[kv.Key], kv.Value)
+		}
+	}
+
+	sort.Strings(keys)
+
+	mName := mergeName(jobName, reduceTask)
+	nfile, err := os.OpenFile(mName, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		fmt.Println("open ", mName, " error.")
+	}
+	defer nfile.Close()
+
+	enc := json.NewEncoder(nfile)
+	for _,kv := range keys {
+		err := enc.Encode(KeyValue{kv, reduceF(kv, kvs[kv])})
+		if err != nil {
+
+		}
+	}
 }
